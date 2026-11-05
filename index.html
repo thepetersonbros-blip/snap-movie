@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Snap Movie">
+<meta name="theme-color" content="#1d1442">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Snap Movie</title>
+<style>
+:root{
+  --bg1:#3b2a8a; --bg2:#1d1442; --card:#2c2170;
+  --red:#ff4d5e; --green:#22c55e; --amber:#f5a524; --blue:#3b82f6; --ink:#1d1442;
+  --snap:clamp(96px,17vmin,150px);
+  --btn:clamp(64px,11vmin,96px);
+  --float:clamp(52px,8vmin,68px);
+  --pad:clamp(10px,1.6vmin,18px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg2);color:#fff;
+  font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,-apple-system,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+body{background:radial-gradient(circle at 15% 0%,var(--bg1),var(--bg2) 65%) fixed}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+img{-webkit-user-drag:none}
+[hidden]{display:none!important}
+.screen{position:fixed;inset:0;display:none;
+  padding:max(var(--pad),env(safe-area-inset-top)) max(var(--pad),env(safe-area-inset-right))
+          max(var(--pad),env(safe-area-inset-bottom)) max(var(--pad),env(safe-area-inset-left))}
+.screen.on{display:flex}
+svg.i{width:52%;height:52%;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;
+  stroke-linejoin:round;pointer-events:none}
+
+/* round toy buttons */
+.btn{width:var(--btn);height:var(--btn);border-radius:50%;display:grid;place-items:center;flex:0 0 auto;
+  box-shadow:0 6px 0 rgba(0,0,0,.3),inset 0 -4px 0 rgba(0,0,0,.12);
+  transition:transform .08s,box-shadow .08s,opacity .2s}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.3),inset 0 -4px 0 rgba(0,0,0,.12)}
+.btn:disabled{opacity:.3;transform:none}
+.red{background:var(--red)} .green{background:var(--green)} .amber{background:var(--amber)} .blue{background:var(--blue)}
+.snap{width:var(--snap);height:var(--snap);border:clamp(5px,.9vmin,8px) solid #fff;background:var(--red)}
+.snap svg.i{width:46%;height:46%}
+.snap.pulse{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{
+  0%,100%{box-shadow:0 6px 0 rgba(0,0,0,.3),0 0 0 0 rgba(255,77,94,.75)}
+  50%{box-shadow:0 6px 0 rgba(0,0,0,.3),0 0 0 24px rgba(255,77,94,0)}}
+#playBtn svg.i{transform:translateX(6%)}
+.float{width:var(--float);height:var(--float);background:rgba(15,10,40,.55);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:none;font-size:calc(var(--float)*.48)}
+.float:active{transform:scale(.92);box-shadow:none}
+.float.off{opacity:.4;filter:grayscale(1)}
+
+/* home */
+#home{flex-direction:column;gap:var(--pad)}
+.home-head{display:flex;align-items:center;gap:14px;padding:6px 8px 0}
+.home-head .logo{font-size:clamp(40px,7vmin,64px)}
+.home-head h1{margin:0;font-size:clamp(34px,6.5vmin,60px);font-weight:900;letter-spacing:.5px;
+  text-shadow:0 4px 0 rgba(0,0,0,.25)}
+#grid{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(clamp(200px,28vmin,300px),1fr));
+  gap:clamp(14px,2.4vmin,24px);align-content:start;padding:8px 8px 24px}
+.tile{position:relative;aspect-ratio:16/10;border-radius:22px;overflow:hidden;background:var(--card);
+  box-shadow:0 8px 0 rgba(0,0,0,.28);transition:transform .12s}
+.tile img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.tile.pressing{transform:scale(.95)}
+.tile .badge{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);border-radius:999px;
+  padding:4px 12px;font-weight:800;font-size:20px}
+.tile.new{background:var(--amber);color:var(--ink);display:grid;place-items:center}
+.tile.new .plus{font-size:clamp(76px,13vmin,128px);font-weight:900;line-height:1;margin-top:-.08em}
+.tile.new.pulse{animation:wiggle 2.4s ease-in-out infinite}
+@keyframes wiggle{0%,78%,100%{transform:rotate(0)}84%{transform:rotate(-3deg)}90%{transform:rotate(3deg)}96%{transform:rotate(-2deg)}}
+.hint{margin:0;text-align:center;opacity:.7;font-size:15px;padding:0 12px}
+
+/* studio */
+#studio{gap:var(--pad)}
+#stage{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:var(--pad)}
+#view{position:relative;flex:1;min-height:0;background:#000;border-radius:24px;overflow:hidden}
+#view video,#ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#view video.mirror{transform:scaleX(-1)}
+#ghost{opacity:.35;pointer-events:none}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+#flash.go{animation:flash .28s ease-out}
+@keyframes flash{from{opacity:.9}to{opacity:0}}
+#view .tl{position:absolute;top:12px;left:12px}
+#view .tr{position:absolute;top:12px;right:12px;display:flex;gap:10px}
+#count{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(15,10,40,.6);
+  border-radius:999px;padding:4px 18px;font-weight:900;font-size:clamp(22px,4vmin,34px);pointer-events:none}
+#count.bump{animation:bump .25s}
+@keyframes bump{50%{transform:translateX(-50%) scale(1.3)}}
+#camMsg{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:16px;
+  text-align:center;padding:24px}
+#camMsg .big{font-size:64px}
+#camMsg p{margin:0;opacity:.75;max-width:440px;font-size:16px}
+#strip{flex:0 0 auto;height:clamp(64px,12vmin,104px);display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;
+  touch-action:pan-x;padding:2px 2px 6px;scrollbar-width:none}
+#strip::-webkit-scrollbar{display:none}
+.thumb{flex:0 0 auto;height:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;position:relative;
+  background:#000;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.thumb span{position:absolute;left:7px;bottom:4px;font-weight:900;font-size:15px;text-shadow:0 1px 3px #000}
+.thumb.new{animation:pop .3s cubic-bezier(.3,1.6,.6,1)}
+@keyframes pop{from{transform:scale(.2);opacity:0}}
+.slot{flex:0 0 auto;height:100%;aspect-ratio:16/9;border-radius:12px;border:3px dashed rgba(255,255,255,.22)}
+#controls{flex:0 0 auto;width:calc(var(--snap) + 16px);display:flex;flex-direction:column;align-items:center;
+  justify-content:space-evenly}
+@media (orientation:portrait){
+  #studio{flex-direction:column}
+  #controls{width:auto;height:calc(var(--snap) + 20px);flex-direction:row}
+}
+
+/* theater */
+#theater{flex-direction:column;gap:var(--pad);background:#000}
+#tview{position:relative;flex:1;min-height:0;display:grid;place-items:center;overflow:hidden}
+#tcanvas{display:block;border-radius:16px}
+.prog{flex:0 0 auto;height:10px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--amber)}
+#tbar{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:clamp(18px,5vmin,48px)}
+.speeds{display:flex;gap:10px;background:rgba(255,255,255,.08);padding:8px;border-radius:999px}
+.speeds button{width:var(--btn);height:var(--btn);border-radius:50%;font-size:calc(var(--btn)*.5);
+  display:grid;place-items:center;opacity:.45;transition:.15s}
+.speeds button.on{opacity:1;background:rgba(255,255,255,.2);transform:scale(1.06)}
+
+/* pop-ups */
+.modal{position:fixed;inset:0;z-index:10;display:none;place-items:center;background:rgba(10,6,30,.82);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:24px}
+.modal.on{display:grid}
+.card{background:var(--card);border-radius:28px;padding:clamp(18px,3vmin,30px);display:flex;flex-direction:column;
+  align-items:center;gap:18px;max-width:min(92vw,680px);box-shadow:0 12px 0 rgba(0,0,0,.3);text-align:center}
+.card img{max-width:100%;max-height:52vh;border-radius:16px;display:block}
+.card p{margin:0;font-size:24px;font-weight:800}
+.card p.small{font-size:15px;font-weight:600;opacity:.7}
+.row{display:flex;gap:32px;justify-content:center;align-items:center}
+.pill{display:flex;align-items:center;gap:12px;padding:16px 28px;border-radius:999px;font-weight:900;font-size:24px;
+  box-shadow:0 6px 0 rgba(0,0,0,.3)}
+.pill svg.i{width:30px;height:30px}
+.pill:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.3)}
+.pill.plain{background:rgba(255,255,255,.12);box-shadow:none;font-size:18px;padding:12px 22px}
+.big-num{font-size:44px;font-weight:900;line-height:1}
+.reel{font-size:76px;line-height:1}
+.reel.spin{animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bar{width:min(70vw,380px);height:18px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--green);transition:width .15s}
+.hold{position:relative;--p:0}
+.hold::after{content:"";position:absolute;inset:-10px;border-radius:50%;
+  background:conic-gradient(#fff calc(var(--p) * 360deg),rgba(255,255,255,.15) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));pointer-events:none}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(0,0,0,.8);padding:12px 22px;
+  border-radius:999px;font-weight:700;z-index:20;opacity:0;transition:opacity .25s;pointer-events:none;
+  max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M3.5 8.5h3.2l1.9-3h6.8l1.9 3h3.2a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.8" r="3.6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l11-6.8a.8.8 0 0 0 0-1.4l-11-6.8A.8.8 0 0 0 8 5.2z" fill="currentColor"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-flip" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 0 1 14.6-5.9l2.4 2.4"/><path d="M20.5 3.5v5h-5"/><path d="M20.5 12a8.5 8.5 0 0 1-14.6 5.9l-2.4-2.4"/><path d="M3.5 20.5v-5h5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5.5h4V20"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 3.5v11"/><path d="m7.5 10 4.5 4.5 4.5-4.5"/><path d="M4 16.5V20h16v-3.5"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M7 10.5H5.5V21h13V10.5H17"/></symbol>
+</svg>
+
+<!-- HOME: all the movies -->
+<section id="home" class="screen on">
+  <header class="home-head"><div class="logo">🎬</div><h1>Snap Movie</h1></header>
+  <div id="grid">
+    <button id="newMovie" class="tile new" aria-label="New movie"><span class="plus">+</span></button>
+  </div>
+  <p id="a2hs" class="hint" hidden>Grown-ups: tap Share, then "Add to Home Screen." Use the app from there so movies stay saved.</p>
+</section>
+
+<!-- STUDIO: camera + snap -->
+<section id="studio" class="screen">
+  <div id="stage">
+    <div id="view">
+      <video id="video" playsinline muted autoplay></video>
+      <img id="ghost" alt="" hidden>
+      <div id="flash"></div>
+      <div id="camMsg" hidden>
+        <div class="big">📷</div>
+        <button id="camRetry" class="pill blue"><svg class="i"><use href="#i-cam"/></svg>Turn on camera</button>
+        <p>Still no camera? A grown-up can go to Settings, then Safari, then Camera, and pick Allow.</p>
+      </div>
+      <button id="toHome" class="btn float tl" aria-label="Home"><svg class="i"><use href="#i-home"/></svg></button>
+      <div class="tr">
+        <button id="ghostBtn" class="btn float" aria-label="Ghost picture">👻</button>
+        <button id="flipBtn" class="btn float" aria-label="Switch camera"><svg class="i"><use href="#i-flip"/></svg></button>
+      </div>
+      <div id="count" hidden>0</div>
+    </div>
+    <div id="strip"></div>
+  </div>
+  <div id="controls">
+    <button id="undoBtn" class="btn amber" aria-label="Undo"><svg class="i"><use href="#i-undo"/></svg></button>
+    <button id="snapBtn" class="btn snap" aria-label="Take picture"><svg class="i"><use href="#i-cam"/></svg></button>
+    <button id="playBtn" class="btn green" aria-label="Play movie"><svg class="i"><use href="#i-play"/></svg></button>
+  </div>
+</section>
+
+<!-- THEATER: watch it -->
+<section id="theater" class="screen">
+  <div id="tview">
+    <canvas id="tcanvas"></canvas>
+  </div>
+  <div class="prog"><i id="tprog"></i></div>
+  <div id="tbar">
+    <button id="tclose" class="btn amber" aria-label="Back"><svg class="i"><use href="#i-x"/></svg></button>
+    <div class="speeds">
+      <button data-fps="4" aria-label="Slow">🐢</button>
+      <button data-fps="8" aria-label="Medium">🐱</button>
+      <button data-fps="12" aria-label="Fast">🐇</button>
+    </div>
+    <button id="tsave" class="btn blue" aria-label="Save video"><svg class="i"><use href="#i-save"/></svg></button>
+  </div>
+</section>
+
+<!-- look at one picture -->
+<div id="frameModal" class="modal">
+  <div class="card">
+    <div id="frameNum" class="big-num">1</div>
+    <img id="frameImg" alt="">
+    <div class="row">
+      <button id="frameBack" class="btn blue" aria-label="Back"><svg class="i"><use href="#i-x"/></svg></button>
+      <button id="frameDel" class="btn red" aria-label="Throw away this picture"><svg class="i"><use href="#i-trash"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- delete a movie (hold the trash) -->
+<div id="delModal" class="modal">
+  <div class="card">
+    <img id="delImg" alt="">
+    <p>Delete this movie?</p>
+    <div class="row">
+      <button id="delKeep" class="btn green" aria-label="Keep it"><svg class="i"><use href="#i-check"/></svg></button>
+      <button id="delHold" class="btn red hold" aria-label="Hold to delete"><svg class="i"><use href="#i-trash"/></svg></button>
+    </div>
+    <p class="small">Hold the trash to delete</p>
+  </div>
+</div>
+
+<!-- make a video file -->
+<div id="expModal" class="modal">
+  <div class="card">
+    <div id="expWorking">
+      <div class="reel spin">🎬</div>
+      <p style="margin:16px 0">Making your movie…</p>
+      <div class="bar"><i id="expBar"></i></div>
+    </div>
+    <div id="expDone" hidden>
+      <div class="reel">🎉</div>
+      <div class="row" style="flex-direction:column;gap:16px;margin-top:16px">
+        <button id="expSave" class="pill green"><svg class="i"><use href="#i-share"/></svg>Save to Photos</button>
+        <button id="expClose" class="pill plain">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const DEMO = new URLSearchParams(location.search).has('demo');
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const even = n => Math.max(2, Math.round(n / 2) * 2);
+const nextFrame = () => new Promise(r => requestAnimationFrame(r));
+
+/* ---------------- storage (IndexedDB, stays on this device) ---------------- */
+let dbp = null;
+function openDB() {
+  if (!dbp) dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('snap-movie', 1);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if (!d.objectStoreNames.contains('movies')) d.createObjectStore('movies', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('frames')) d.createObjectStore('frames', { keyPath: 'id' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+async function run(store, mode, fn) {
+  const d = await openDB();
+  return new Promise((res, rej) => {
+    const t = d.transaction(store, mode);
+    const out = fn(t.objectStore(store));
+    t.oncomplete = () => res(Array.isArray(out) ? out.map(r => r.result) : out ? out.result : undefined);
+    t.onerror = t.onabort = () => rej(t.error);
+  });
+}
+const dbAll = store => run(store, 'readonly', s => s.getAll());
+const dbPut = (store, val) => run(store, 'readwrite', s => s.put(val));
+const dbDel = (store, key) => run(store, 'readwrite', s => s.delete(key));
+const dbGetMany = (store, keys) => run(store, 'readonly', s => keys.map(k => s.get(k)));
+const dbDelMany = (store, keys) => run(store, 'readwrite', s => keys.map(k => s.delete(k)));
+
+/* ---------------- sounds (made in code, no files) ---------------- */
+let ac = null;
+function audio() {
+  if (!ac) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; ac = new AC(); }
+  if (ac.state === 'suspended') ac.resume();
+  return ac;
+}
+['pointerup', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => audio(), { passive: true }));
+function tone(a, t, f0, f1, dur, vol, type = 'sine') {
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(a.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function sfx(kind) {
+  const a = audio(); if (!a) return;
+  const t = a.currentTime + 0.005;
+  if (kind === 'snap') {
+    for (const [dt, v] of [[0, 0.7], [0.07, 0.45]]) {
+      const len = Math.floor(a.sampleRate * 0.06), b = a.createBuffer(1, len, a.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+      const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+      s.buffer = b; f.type = 'highpass'; f.frequency.value = 1500; g.gain.value = v;
+      s.connect(f).connect(g).connect(a.destination); s.start(t + dt);
+    }
+  } else if (kind === 'pop') tone(a, t, 700, 180, 0.18, 0.35);
+  else if (kind === 'tap') tone(a, t, 900, 1200, 0.06, 0.12, 'triangle');
+  else if (kind === 'done') [523, 659, 784, 1047].forEach((f, i) => tone(a, t + i * 0.09, f, f * 1.001, 0.22, 0.2, 'triangle'));
+}
+
+/* ---------------- little helpers ---------------- */
+let toastT = 0;
+function toast(msg, ms = 2600) {
+  const el = $('#toast'); el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms);
+}
+let screen = 'home';
+function show(id) { screen = id; document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
+const openModal = sel => $(sel).classList.add('on');
+const closeModal = sel => $(sel).classList.remove('on');
+function restart(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+function drawFit(x, c, b) {
+  x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
+  const s = Math.min(c.width / b.width, c.height / b.height), w = b.width * s, h = b.height * s;
+  x.drawImage(b, (c.width - w) / 2, (c.height - h) / 2, w, h);
+}
+// tap = quick press, long = press and hold (used for movie tiles)
+function pressable(el, onTap, onLong, ms = 700) {
+  let timer = 0, sx = 0, sy = 0, fired = false;
+  const end = () => { clearTimeout(timer); timer = 0; el.classList.remove('pressing'); };
+  el.addEventListener('pointerdown', e => {
+    fired = false; sx = e.clientX; sy = e.clientY; el.classList.add('pressing');
+    timer = setTimeout(() => { timer = 0; fired = true; el.classList.remove('pressing'); onLong(); }, ms);
+  });
+  el.addEventListener('pointermove', e => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 12) end(); });
+  el.addEventListener('pointerup', () => { const quick = !!timer; end(); if (quick && !fired) onTap(); });
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('pointerleave', end);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+// the button only works if you keep holding it (so little fingers can't delete by accident)
+function holdToConfirm(btn, ms, onDone) {
+  let t0 = 0, raf = 0;
+  const cancel = () => { cancelAnimationFrame(raf); raf = 0; btn.style.setProperty('--p', 0); };
+  const step = () => {
+    const p = Math.min(1, (performance.now() - t0) / ms);
+    btn.style.setProperty('--p', p);
+    if (p >= 1) { cancel(); onDone(); } else raf = requestAnimationFrame(step);
+  };
+  btn.addEventListener('pointerdown', e => { e.preventDefault(); t0 = performance.now(); raf = requestAnimationFrame(step); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, () => { if (raf) cancel(); }));
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+/* ---------------- keep the screen awake while filming ---------------- */
+let wake = null, wantWake = false;
+async function keepAwake(on) {
+  wantWake = on;
+  try {
+    if (on && !wake && navigator.wakeLock) {
+      wake = await navigator.wakeLock.request('screen');
+      wake.addEventListener('release', () => { wake = null; });
+    } else if (!on && wake) { await wake.release(); wake = null; }
+  } catch (e) { /* not supported, that's fine */ }
+}
+
+/* ---------------- HOME ---------------- */
+const grid = $('#grid'), newTile = $('#newMovie');
+let homeUrls = [];
+async function renderHome() {
+  homeUrls.forEach(u => URL.revokeObjectURL(u)); homeUrls = [];
+  grid.querySelectorAll('.tile.movie').forEach(t => t.remove());
+  let movies = [];
+  try { movies = await dbAll('movies'); } catch (e) { toast('Could not open saved movies'); }
+  movies.filter(m => !m.frames.length).forEach(m => dbDel('movies', m.id).catch(() => {}));
+  movies = movies.filter(m => m.frames.length).sort((a, b) => b.updated - a.updated);
+  const covers = await dbGetMany('frames', movies.map(m => m.frames[0])).catch(() => []);
+  movies.forEach((m, i) => {
+    const tile = document.createElement('button');
+    tile.className = 'tile movie';
+    const rec = covers[i];
+    if (rec) {
+      const url = URL.createObjectURL(new Blob([rec.full], { type: 'image/jpeg' }));
+      homeUrls.push(url);
+      const img = new Image(); img.src = url; img.alt = ''; tile.append(img);
+    }
+    const b = document.createElement('span'); b.className = 'badge'; b.textContent = '📸 ' + m.frames.length;
+    tile.append(b);
+    pressable(tile, () => openStudio(m), () => askDelete(m, rec));
+    grid.append(tile);
+  });
+  newTile.classList.toggle('pulse', movies.length === 0);
+}
+newTile.addEventListener('click', () => openStudio(null));
+
+let delTarget = null, delUrl = null;
+function askDelete(m, rec) {
+  delTarget = m;
+  if (delUrl) URL.revokeObjectURL(delUrl);
+  delUrl = rec ? URL.createObjectURL(new Blob([rec.thumb], { type: 'image/jpeg' })) : null;
+  $('#delImg').hidden = !delUrl;
+  if (delUrl) $('#delImg').src = delUrl;
+  sfx('tap'); openModal('#delModal');
+}
+$('#delKeep').addEventListener('click', () => { sfx('tap'); closeModal('#delModal'); });
+holdToConfirm($('#delHold'), 1200, async () => {
+  const m = delTarget; delTarget = null; closeModal('#delModal');
+  if (!m) return;
+  sfx('pop');
+  try { await dbDelMany('frames', m.frames); await dbDel('movies', m.id); } catch (e) { toast('Could not delete that movie'); }
+  renderHome();
+});
+
+/* ---------------- STUDIO ---------------- */
+const video = $('#video'), ghost = $('#ghost'), strip = $('#strip');
+let movie = null, frames = [];
+let ghostOn = localStorage.getItem('ghost') !== 'off', ghostUrl = null;
+let facing = localStorage.getItem('facing') || 'environment', stream = null, demoRaf = 0, mirrored = false;
+
+function hydrate(r) {
+  const full = new Blob([r.full], { type: 'image/jpeg' }), thumb = new Blob([r.thumb], { type: 'image/jpeg' });
+  return { id: r.id, full, thumb, thumbUrl: URL.createObjectURL(thumb) };
+}
+async function openStudio(m) {
+  sfx('tap');
+  movie = m ? { ...m, frames: [...m.frames] } : { id: uid(), created: Date.now(), updated: Date.now(), fps: 8, frames: [] };
+  frames = [];
+  if (movie.frames.length) {
+    try { frames = (await dbGetMany('frames', movie.frames)).filter(Boolean).map(hydrate); }
+    catch (e) { toast('Could not load this movie'); }
+  }
+  show('studio');
+  renderStrip(); updateGhost(); updateUI();
+  startCamera(); keepAwake(true);
+}
+async function saveMovie() {
+  movie.frames = frames.map(f => f.id); movie.updated = Date.now();
+  await dbPut('movies', movie);
+}
+async function leaveStudio() {
+  sfx('tap');
+  stopCamera(); keepAwake(false);
+  await chain;   // let any picture that is still saving finish first
+  if (!frames.length) await dbDel('movies', movie.id).catch(() => {});
+  frames.forEach(f => URL.revokeObjectURL(f.thumbUrl)); frames = [];
+  setGhost(null); movie = null;
+  show('home'); renderHome();
+}
+
+function renderStrip() {
+  strip.textContent = '';
+  if (!frames.length) {
+    for (let i = 0; i < 8; i++) { const s = document.createElement('div'); s.className = 'slot'; strip.append(s); }
+    return;
+  }
+  frames.forEach((f, i) => strip.append(thumbEl(f, i)));
+  strip.scrollLeft = strip.scrollWidth;
+}
+function thumbEl(f, i) {
+  const el = document.createElement('button'); el.className = 'thumb';
+  const img = new Image(); img.src = f.thumbUrl; img.alt = '';
+  const n = document.createElement('span'); n.textContent = i + 1;
+  el.append(img, n);
+  el.addEventListener('click', () => viewFrame(f));
+  return el;
+}
+function addThumb(f) {
+  if (frames.length === 1) strip.textContent = '';
+  const el = thumbEl(f, frames.length - 1); el.classList.add('new'); strip.append(el);
+  strip.scrollLeft = strip.scrollWidth;
+}
+function updateUI() {
+  const n = frames.length;
+  $('#undoBtn').disabled = !n; $('#playBtn').disabled = !n;
+  $('#snapBtn').classList.toggle('pulse', !n);
+  $('#count').hidden = !n; $('#count').textContent = n;
+  $('#ghostBtn').classList.toggle('off', !ghostOn);
+}
+
+// the "ghost" (onion skin): last picture shown see-through over the camera
+function setGhost(blob) {
+  if (ghostUrl) URL.revokeObjectURL(ghostUrl);
+  ghostUrl = null;
+  if (blob) { ghostUrl = URL.createObjectURL(blob); ghost.src = ghostUrl; ghost.hidden = false; }
+  else { ghost.hidden = true; ghost.removeAttribute('src'); }
+}
+function updateGhost() { setGhost(ghostOn && frames.length ? frames[frames.length - 1].full : null); }
+$('#ghostBtn').addEventListener('click', () => {
+  ghostOn = !ghostOn; localStorage.setItem('ghost', ghostOn ? 'on' : 'off');
+  updateGhost(); updateUI(); sfx('tap');
+});
+
+// camera
+function demoStream() {
+  const c = document.createElement('canvas'); c.width = 1280; c.height = 720;
+  const x = c.getContext('2d');
+  (function draw() {
+    const t = performance.now() / 16;
+    x.fillStyle = '#8fd3ff'; x.fillRect(0, 0, 1280, 720);
+    x.fillStyle = '#3c9d4b'; x.fillRect(0, 540, 1280, 180);
+    x.fillStyle = '#ff5a5f'; x.beginPath();
+    x.arc((t * 4) % 1400 - 60, 480 - Math.abs(Math.sin(t / 15)) * 220, 60, 0, 7); x.fill();
+    x.fillStyle = '#1d1442'; x.font = 'bold 44px sans-serif'; x.fillText('DEMO CAMERA', 40, 70);
+    demoRaf = requestAnimationFrame(draw);
+  })();
+  return c.captureStream(30);
+}
+function stopCamera() {
+  if (demoRaf) { cancelAnimationFrame(demoRaf); demoRaf = 0; }
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; video.srcObject = null;
+}
+let camTimer = 0;
+async function startCamera() {
+  stopCamera();
+  $('#camMsg').hidden = true;
+  clearTimeout(camTimer);   // no picture after 6 seconds? show the "Turn on camera" button
+  camTimer = setTimeout(() => { if (screen === 'studio' && !video.videoWidth) $('#camMsg').hidden = false; }, 6000);
+  try {
+    let s;
+    if (DEMO) s = demoStream();
+    else {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no camera here');
+      s = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+    }
+    if (screen !== 'studio' && screen !== 'theater') { s.getTracks().forEach(t => t.stop()); return; }
+    stopCamera();
+    stream = s;
+    video.srcObject = stream;
+    const set = (stream.getVideoTracks()[0] && stream.getVideoTracks()[0].getSettings) ? stream.getVideoTracks()[0].getSettings() : {};
+    mirrored = !DEMO && (set.facingMode || facing) === 'user';
+    video.classList.toggle('mirror', mirrored);
+    await video.play().catch(() => {});
+    $('#camMsg').hidden = true;
+    checkCameras();
+  } catch (e) {
+    console.warn(e);
+    $('#camMsg').hidden = false;
+  }
+}
+async function checkCameras() {
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    $('#flipBtn').hidden = devs.filter(d => d.kind === 'videoinput').length < 2;
+  } catch (e) { /* leave it */ }
+}
+$('#flipBtn').addEventListener('click', () => {
+  sfx('tap');
+  facing = facing === 'user' ? 'environment' : 'user';
+  localStorage.setItem('facing', facing);
+  startCamera();
+});
+$('#camRetry').addEventListener('click', () => { sfx('tap'); startCamera(); });
+
+// take a picture
+const cap = document.createElement('canvas'), capX = cap.getContext('2d');
+const tc = document.createElement('canvas'), tcX = tc.getContext('2d');
+// Encode right now. (canvas.toBlob can wait up to a second in Chrome while anything is animating.)
+function jpeg(c, q) {
+  const s = atob(c.toDataURL('image/jpeg', q).split(',')[1]);
+  const u8 = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i);
+  return u8;
+}
+function grab() {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const k = Math.min(1, 1280 / Math.max(vw, vh));
+  cap.width = even(vw * k); cap.height = even(vh * k);
+  capX.save();
+  if (mirrored) { capX.translate(cap.width, 0); capX.scale(-1, 1); }
+  capX.drawImage(video, 0, 0, cap.width, cap.height);
+  capX.restore();
+  const tk = 320 / Math.max(cap.width, cap.height);
+  tc.width = Math.round(cap.width * tk); tc.height = Math.round(cap.height * tk);
+  tcX.drawImage(cap, 0, 0, tc.width, tc.height);
+  return { full: jpeg(cap, 0.86), thumb: jpeg(tc, 0.8) };
+}
+// every change to the movie runs one at a time, in the order it was tapped
+let chain = Promise.resolve();
+const serial = fn => (chain = chain.then(fn).catch(e => console.error(e)));
+let snapping = false;
+function snap() {
+  if (screen !== 'studio' || snapping) return;   // a double tap only makes one picture
+  if (!video.videoWidth) { toast('The camera is waking up…'); return; }
+  sfx('snap'); restart($('#flash'), 'go');
+  let shot;
+  try { shot = grab(); }                         // grab the picture right now, save it in turn
+  catch (e) { console.error(e); toast('Oops, try again.'); return; }
+  snapping = true;
+  serial(async () => {
+    try {
+      const id = uid();
+      await dbPut('frames', { id, full: shot.full.buffer, thumb: shot.thumb.buffer });
+      const full = new Blob([shot.full], { type: 'image/jpeg' }), thumb = new Blob([shot.thumb], { type: 'image/jpeg' });
+      const f = { id, full, thumb, thumbUrl: URL.createObjectURL(thumb) };
+      frames.push(f);
+      await saveMovie();
+      addThumb(f); updateGhost(); updateUI(); restart($('#count'), 'bump');
+      if (frames.length === 1 && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    } catch (e) {
+      console.error(e);
+      toast('Could not save that picture. The iPad may be full.');
+    } finally { snapping = false; }
+  });
+}
+$('#snapBtn').addEventListener('pointerdown', e => { e.preventDefault(); snap(); });
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (screen === 'studio' && (e.code === 'Space' || e.key === 'Enter') && !$('.modal.on')) { e.preventDefault(); snap(); }
+});
+
+// which = a picture, or 'last' for the undo button
+function removeFrame(which) {
+  serial(async () => {
+    const i = which === 'last' ? frames.length - 1 : frames.indexOf(which);
+    if (i < 0) return;
+    try {
+      const [f] = frames.splice(i, 1);
+      URL.revokeObjectURL(f.thumbUrl);
+      await saveMovie();
+      await dbDel('frames', f.id);
+      sfx('pop'); renderStrip(); updateGhost(); updateUI();
+    } catch (e) { toast('Could not remove that picture'); }
+  });
+}
+$('#undoBtn').addEventListener('click', () => removeFrame('last'));
+$('#toHome').addEventListener('click', leaveStudio);
+
+// look at one picture up close
+let viewing = null, viewUrl = null;
+function viewFrame(f) {
+  sfx('tap'); viewing = f;
+  if (viewUrl) URL.revokeObjectURL(viewUrl);
+  viewUrl = URL.createObjectURL(f.full);
+  $('#frameImg').src = viewUrl;
+  $('#frameNum').textContent = frames.indexOf(f) + 1;
+  openModal('#frameModal');
+}
+function closeFrame() {
+  closeModal('#frameModal');
+  if (viewUrl) URL.revokeObjectURL(viewUrl);
+  viewUrl = null; viewing = null;
+}
+$('#frameBack').addEventListener('click', () => { sfx('tap'); closeFrame(); });
+$('#frameDel').addEventListener('click', () => { const f = viewing; closeFrame(); if (f) removeFrame(f); });
+$('#frameModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeFrame(); });
+$('#delModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal('#delModal'); });
+
+/* ---------------- THEATER ---------------- */
+class Player {
+  constructor(canvas, list, fps, onFrame) {
+    this.c = canvas; this.x = canvas.getContext('2d'); this.list = list; this.fps = fps; this.onFrame = onFrame;
+    this.cache = new Map(); this.idx = -1; this.dead = false; this.raf = 0; this.t0 = 0;
+    this.tick = this.tick.bind(this);
+  }
+  load(i) {   // decode a few pictures ahead, never the whole movie at once (saves memory)
+    let e = this.cache.get(i);
+    if (e) return e;
+    e = { b: null, dead: false };
+    createImageBitmap(this.list[i].full).then(b => { if (e.dead) b.close(); else e.b = b; }).catch(() => {});
+    this.cache.set(i, e);
+    return e;
+  }
+  drop(e) { e.dead = true; if (e.b) { e.b.close(); e.b = null; } }
+  async start() {
+    const b = await createImageBitmap(this.list[0].full).catch(() => null);
+    if (this.dead) { if (b) b.close(); return; }
+    if (b) { this.c.width = even(b.width); this.c.height = even(b.height); drawFit(this.x, this.c, b); b.close(); }
+    fitCanvas();
+    this.t0 = performance.now();
+    this.raf = requestAnimationFrame(this.tick);
+  }
+  setFps(f) { this.t0 = performance.now() - Math.max(0, this.idx) * 1000 / f; this.fps = f; }
+  tick() {
+    if (this.dead) return;
+    const n = this.list.length;
+    const i = Math.floor(Math.max(0, performance.now() - this.t0) * this.fps / 1000) % n;
+    const keep = new Set();
+    for (let k = 0; k < Math.min(n, 6); k++) keep.add((i + k) % n);
+    keep.forEach(k => this.load(k));
+    for (const [k, e] of this.cache) if (!keep.has(k)) { this.drop(e); this.cache.delete(k); }
+    const e = this.cache.get(i);
+    if (i !== this.idx && e.b) { drawFit(this.x, this.c, e.b); this.idx = i; if (this.onFrame) this.onFrame(i, n); }
+    this.raf = requestAnimationFrame(this.tick);
+  }
+  stop() {
+    this.dead = true; cancelAnimationFrame(this.raf);
+    this.cache.forEach(e => this.drop(e)); this.cache.clear();
+  }
+}
+function fitCanvas() {
+  const c = $('#tcanvas'), v = $('#tview');
+  const W = v.clientWidth, H = v.clientHeight;
+  if (!W || !H || !c.width) return;
+  const s = Math.min(W / c.width, H / c.height);
+  c.style.width = Math.floor(c.width * s) + 'px'; c.style.height = Math.floor(c.height * s) + 'px';
+}
+window.addEventListener('resize', fitCanvas);
+
+let player = null;
+function startPlayer() {
+  if (player) player.stop();
+  $('#tprog').style.width = '0%';
+  player = new Player($('#tcanvas'), frames, movie.fps, (i, n) => { $('#tprog').style.width = ((i + 1) / n * 100) + '%'; });
+  player.start();
+}
+function markSpeed() {
+  document.querySelectorAll('.speeds button').forEach(b => b.classList.toggle('on', +b.dataset.fps === movie.fps));
+}
+function openTheater() {
+  if (!frames.length) return;
+  sfx('tap'); show('theater'); markSpeed(); startPlayer();
+}
+function closeTheater() {
+  sfx('tap');
+  if (player) player.stop();
+  player = null;
+  show('studio');
+  if (video.paused) video.play().catch(() => {});
+}
+$('#playBtn').addEventListener('click', openTheater);
+$('#tclose').addEventListener('click', closeTheater);
+document.querySelectorAll('.speeds button').forEach(b => b.addEventListener('click', () => {
+  sfx('tap');
+  movie.fps = +b.dataset.fps; markSpeed();
+  if (player) player.setFps(movie.fps);
+  saveMovie().catch(() => {});
+}));
+
+/* ---------------- save as a real video file ---------------- */
+let exportFile = null;
+async function record(mime, onProgress) {
+  const c = document.createElement('canvas'), x = c.getContext('2d');
+  let cur = await createImageBitmap(frames[0].full);
+  c.width = even(cur.width); c.height = even(cur.height);
+  drawFit(x, c, cur);
+  const fps = movie.fps, n = frames.length, dur = 1000 / fps;
+  const loops = Math.max(1, Math.ceil(3 * fps / n));   // very short movies repeat so the video is at least ~3 seconds
+  const total = n * loops;
+  const vstream = c.captureStream(30);
+  const rec = new MediaRecorder(vstream, { mimeType: mime, videoBitsPerSecond: 6000000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  const stopped = new Promise((res, rej) => { rec.onstop = res; rec.onerror = e => rej(e.error || e); });
+  rec.start();
+  // keep repainting so the recorder gets steady frames
+  const hold = async until => { while (performance.now() < until) { drawFit(x, c, cur); await nextFrame(); } };
+  const t0 = performance.now() + 200;
+  await hold(t0);
+  let nextP = total > 1 ? createImageBitmap(frames[1 % n].full) : null;
+  for (let k = 0; k < total; k++) {
+    if (k > 0) {
+      const b = await nextP;
+      nextP = k + 1 < total ? createImageBitmap(frames[(k + 1) % n].full) : null;
+      cur.close(); cur = b;
+    }
+    await hold(t0 + (k + 1) * dur);
+    onProgress((k + 1) / total);
+  }
+  await hold(performance.now() + 400);
+  rec.stop();
+  await stopped;
+  cur.close();
+  vstream.getTracks().forEach(t => t.stop());
+  const type = mime.split(';')[0];
+  const blob = new Blob(chunks, { type });
+  if (!blob.size) throw new Error('empty video');
+  const d = new Date(), p = v => String(v).padStart(2, '0');
+  const name = `snap-movie-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+  return new File([blob], `${name}.${type === 'video/mp4' ? 'mp4' : 'webm'}`, { type });
+}
+async function makeVideo() {
+  const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+  const ok = window.MediaRecorder && HTMLCanvasElement.prototype.captureStream;
+  const mime = ok ? types.find(t => MediaRecorder.isTypeSupported(t)) : null;
+  if (!mime) { toast('This iPad needs an update to save videos.'); return; }
+  sfx('tap');
+  if (player) { player.stop(); player = null; }
+  exportFile = null;
+  $('#expWorking').hidden = false; $('#expDone').hidden = true; $('#expBar').style.width = '0%';
+  openModal('#expModal');
+  try {
+    exportFile = await record(mime, p => { $('#expBar').style.width = Math.round(p * 100) + '%'; });
+    $('#expWorking').hidden = true; $('#expDone').hidden = false; sfx('done');
+  } catch (e) {
+    console.error(e);
+    closeModal('#expModal'); toast('Sorry, that did not work. Try again.');
+    if (screen === 'theater') startPlayer();
+  }
+}
+function downloadFile(file) {
+  const u = URL.createObjectURL(file), a = document.createElement('a');
+  a.href = u; a.download = file.name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 60000);
+}
+$('#tsave').addEventListener('click', makeVideo);
+$('#expSave').addEventListener('click', async () => {
+  if (!exportFile) return;
+  sfx('tap');
+  if (navigator.canShare && navigator.canShare({ files: [exportFile] })) {
+    try { await navigator.share({ files: [exportFile] }); }
+    catch (e) { if (e.name !== 'AbortError') downloadFile(exportFile); }
+  } else downloadFile(exportFile);
+});
+$('#expClose').addEventListener('click', () => {
+  sfx('tap'); closeModal('#expModal'); exportFile = null;
+  if (screen === 'theater') startPlayer();
+});
+
+/* ---------------- coming back to the app ---------------- */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (wantWake) keepAwake(true);
+  if (screen === 'studio' || screen === 'theater') {
+    const tr = stream && stream.getVideoTracks()[0];
+    if (!tr || tr.readyState === 'ended') startCamera();
+    else if (video.paused) video.play().catch(() => {});
+  }
+});
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+$('#a2hs').hidden = !!standalone;
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+window.__snap = { get frames() { return frames; }, get movie() { return movie; }, get screen() { return screen; } };
+renderHome();
+})();
+</script>
+</body>
+</html>
